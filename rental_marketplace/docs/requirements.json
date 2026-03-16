@@ -1,0 +1,113 @@
+{
+  "product_name": "RentIt - Rental Marketplace",
+  "description": "A peer-to-peer rental marketplace connecting store owners with customers",
+  "features": [
+    {
+      "name": "Store Management",
+      "priority": "high",
+      "description": "Owners can create and manage their rental stores"
+    },
+    {
+      "name": "Product Listings",
+      "priority": "high",
+      "description": "List items with photos, prices, availability"
+    },
+    {
+      "name": "Booking System",
+      "priority": "high",
+      "description": "Calendar-based booking with date selection"
+    },
+    {
+      "name": "Payment Processing",
+      "priority": "high",
+      "description": "Stripe integration for secure payments"
+    },
+    {
+      "name": "Reviews & Ratings",
+      "priority": "medium",
+      "description": "Customers can rate and review rentals"
+    },
+    {
+      "name": "Google Maps",
+      "priority": "medium",
+      "description": "Location-based store search"
+    },
+    {
+      "name": "Document Verification",
+      "priority": "low",
+      "description": "Trust verification for stores"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Home",
+      "route": "/",
+      "components": [
+        "Hero",
+        "SearchBar",
+        "FeaturedStores",
+        "Categories"
+      ]
+    },
+    {
+      "name": "Browse Stores",
+      "route": "/stores",
+      "components": [
+        "StoreList",
+        "Filters",
+        "Map"
+      ]
+    },
+    {
+      "name": "Store Detail",
+      "route": "/stores/[id]",
+      "components": [
+        "StoreInfo",
+        "ProductList",
+        "Reviews"
+      ]
+    },
+    {
+      "name": "Product Detail",
+      "route": "/products/[id]",
+      "components": [
+        "ProductInfo",
+        "Calendar",
+        "BookingForm"
+      ]
+    },
+    {
+      "name": "Checkout",
+      "route": "/checkout",
+      "components": [
+        "OrderSummary",
+        "PaymentForm"
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "route": "/dashboard",
+      "components": [
+        "Stats",
+        "Bookings",
+        "Products"
+      ]
+    },
+    {
+      "name": "Auth",
+      "route": "/auth",
+      "components": [
+        "LoginForm",
+        "RegisterForm"
+      ]
+    }
+  ],
+  "tech_stack": {
+    "frontend": "Next.js 14",
+    "backend": "Node.js + Express",
+    "database": "PostgreSQL",
+    "auth": "NextAuth.js",
+    "payment": "Stripe",
+    "maps": "Google Maps API"
+  }
+}

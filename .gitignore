@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.env
+.venv
+venv/
+env/
+ENV/
+
+# Database / state
+*.db
+workflow_state.db
+
+# Generated output (user project files)
+generated_projects/
+
+# Logs
+logs/
+*.log
+mock_log.txt
+test_output.txt
+model_list.txt
+
+# Node.js (rental_marketplace frontend)
+node_modules/
+.next/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Temp / scratch test files
+test_kimi_api.py
+test_connectivity.py
