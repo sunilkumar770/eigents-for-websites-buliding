@@ -53,8 +53,7 @@ class CodeExecutor:
                 workdir=workdir or os.path.dirname(tmp_path)
             )
         finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            os.unlink(tmp_path)
 
     def run_file(self, filepath: str, workdir: Optional[str] = None) -> ExecutionResult:
         ext = Path(filepath).suffix

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "nexus-agent": {
+      "command": "python",
+      "args": ["c:/Users/sunil/Downloads/eigent/nexus_mcp.py"],
+      "env": {
+        "OLLAMA_MODEL": "deepseek-coder:6.7b",
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "NVIDIA_API_KEY": "your_key_here_if_using_kimi"
+      }
+    }
+  }
+}

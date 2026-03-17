@@ -1,42 +1,59 @@
 """
-Ollama Adapter
+Ollama Adapter (3‑model, lock-serialized)
 
 Connects to a local Ollama server for LLM inference.
-Compatible models: deepseek-r1, gemma3, llama3, mistral, phi3, etc.
-Provides the same `chat()` interface as KimiAdapter so it can be used
-as a drop-in replacement within the multi-agent workflow.
+
+This version:
+  - Uses three explicit models:
+      OLLAMA_REASONER_MODEL   → reasoning agents
+      OLLAMA_CODER_MODEL      → coding/debugging agents
+      OLLAMA_GENERAL_MODEL    → everything else
+  - Enforces a single active request at a time via a process-wide lock
+    so heavy models never run concurrently on 16 GB RAM.
+
+Env configuration (required):
+  OLLAMA_REASONER_MODEL
+  OLLAMA_CODER_MODEL
+  OLLAMA_GENERAL_MODEL
+  OLLAMA_BASE_URL (default: http://localhost:11434)
 """
 
 import requests
-import json
 import logging
 import time
+import os
+import threading
 from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
+# Global lock to serialize all Ollama calls across the process.
+_OLLAMA_LOCK = threading.Lock()
+
 
 class OllamaAdapter:
     """
-    Adapter for local Ollama models.
+    Adapter for local Ollama models with per-agent routing.
 
-    Uses the Ollama REST API (http://localhost:11434/api/chat).
-    Provides the same chat() interface as KimiAdapter so agents can
-    use either backend transparently.
-
-    Supported Ollama models (must be pulled first):
-      - deepseek-r1:1.5b
-      - deepseek-r1:7b
-      - gemma3:2b / gemma3:12b
-      - llama3.1 / llama3.2
-      - mistral / mistral-nemo
-      - phi3 / phi3.5
-      - qwen2.5-coder
+    Public API matches KimiAdapter:
+        chat(messages, stream=False, agent_type=None, temperature=0.7, max_tokens=4096, **kwargs)
     """
+
+    # Map antigravity agent_type → logical role → model slot
+    AGENT_ROLE_MAP = {
+        "product_interpreter":   "reasoner",
+        "frontend_engineer":     "coder",
+        "backend_engineer":      "coder",
+        "integration":           "coder",
+        "testing":               "coder",
+        "debug":                 "coder",
+        "security":              "reasoner",
+        "production_readiness":  "general",
+    }
 
     def __init__(
         self,
-        model: str = "deepseek-r1:1.5b",
+        model: str = "unused-default",
         base_url: str = "http://localhost:11434",
         timeout: int = 120,
         mock_mode: bool = False,
@@ -45,25 +62,65 @@ class OllamaAdapter:
         Initialize the Ollama adapter.
 
         Args:
-            model:     Ollama model tag (must already be pulled).
-            base_url:  Ollama server URL. Default: http://localhost:11434
+            model:     Ignored for routing (kept for backward compatibility).
+            base_url:  Ollama server URL.
             timeout:   HTTP request timeout in seconds.
             mock_mode: If True, returns mock responses without calling Ollama.
-                       Useful for development/testing without a running Ollama server.
         """
-        self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.mock_mode = mock_mode
         self._chat_url = f"{self.base_url}/api/chat"
+
+        # Required model tags per logical role
+        self.reasoner_model = os.getenv("OLLAMA_REASONER_MODEL")
+        self.coder_model = os.getenv("OLLAMA_CODER_MODEL")
+        self.general_model = os.getenv("OLLAMA_GENERAL_MODEL")
+
+        missing = [name for name, val in [
+            ("OLLAMA_REASONER_MODEL", self.reasoner_model),
+            ("OLLAMA_CODER_MODEL", self.coder_model),
+            ("OLLAMA_GENERAL_MODEL", self.general_model),
+        ] if not val]
+        if missing and not mock_mode:
+            raise RuntimeError(
+                f"OllamaAdapter missing required env vars: {', '.join(missing)}. "
+                "Configure all three model tags before running."
+            )
+
         if mock_mode:
             logger.warning("OllamaAdapter running in MOCK mode — no real LLM calls.")
         else:
-            logger.info(f"OllamaAdapter initialised: model={model}, url={self.base_url}")
+            logger.info(
+                "OllamaAdapter initialized with 3‑model routing: "
+                f"reasoner={self.reasoner_model}, "
+                f"coder={self.coder_model}, "
+                f"general={self.general_model}, "
+                f"url={self.base_url}"
+            )
 
-    # ------------------------------------------------------------------
-    # Public interface (matches KimiAdapter)
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------ #
+    # Routing helpers                                                    #
+    # ------------------------------------------------------------------ #
+
+    def _select_model_for_agent(self, agent_type: Optional[str]) -> str:
+        """
+        Map antigravity agent_type → logical role → concrete Ollama model tag.
+        """
+        if not agent_type:
+            return self.general_model
+
+        role = self.AGENT_ROLE_MAP.get(agent_type, "general")
+
+        if role == "reasoner":
+            return self.reasoner_model
+        if role == "coder":
+            return self.coder_model
+        return self.general_model
+
+    # ------------------------------------------------------------------ #
+    # Public interface                                                   #
+    # ------------------------------------------------------------------ #
 
     def chat(
         self,
@@ -79,19 +136,20 @@ class OllamaAdapter:
 
         Args:
             messages:    List of {role, content} dicts (OpenAI format).
-            stream:      Not yet used; kept for interface parity.
-            agent_type:  Optional label for logging.
+            stream:      Not used; kept for interface parity.
+            agent_type:  Agent label for routing + logging.
             temperature: Sampling temperature.
             max_tokens:  Max tokens to generate (maps to num_predict).
-
-        Returns:
-            Response content string (or raises RuntimeError on failure).
         """
         tag = agent_type or "unknown"
-        start = time.time()
+        model = self._select_model_for_agent(agent_type)
+
+        if self.mock_mode:
+            logger.info(f"[OllamaAdapter-MOCK][{tag}] → {model} ({len(messages)} messages)")
+            return f"[MOCK RESPONSE from {model} for agent {tag}]"
 
         payload = {
-            "model": self.model,
+            "model": model,
             "messages": messages,
             "stream": False,
             "options": {
@@ -100,51 +158,64 @@ class OllamaAdapter:
             },
         }
 
-        logger.info(f"[OllamaAdapter][{tag}] → {self.model} ({len(messages)} messages)")
+        logger.info(f"[OllamaAdapter][{tag}] → model={model} ({len(messages)} messages)")
+        start = time.time()
 
-        try:
-            resp = requests.post(
-                self._chat_url,
-                json=payload,
-                timeout=self.timeout,
-                headers={"Content-Type": "application/json"},
-            )
-            resp.raise_for_status()
-        except requests.exceptions.ConnectionError:
-            raise RuntimeError(
-                f"Cannot connect to Ollama at {self.base_url}. "
-                "Is Ollama running? Start it with: ollama serve"
-            )
-        except requests.exceptions.Timeout:
-            raise RuntimeError(
-                f"Ollama timed out after {self.timeout}s. "
-                "Try a smaller model or increase the timeout."
-            )
-        except requests.exceptions.HTTPError as exc:
-            raise RuntimeError(f"Ollama HTTP error: {exc}\n{resp.text}")
+        # Enforce single active Ollama request at a time.
+        with _OLLAMA_LOCK:
+            try:
+                resp = requests.post(
+                    self._chat_url,
+                    json=payload,
+                    timeout=self.timeout,
+                    headers={"Content-Type": "application/json"},
+                )
+                resp.raise_for_status()
+            except requests.exceptions.ConnectionError:
+                raise RuntimeError(
+                    f"Cannot connect to Ollama at {self.base_url}. "
+                    "Is Ollama running? Start it with: ollama serve"
+                )
+            except requests.exceptions.Timeout:
+                raise RuntimeError(
+                    f"Ollama timed out after {self.timeout}s. "
+                    "Try a smaller model or increase the timeout."
+                )
+            except requests.exceptions.HTTPError as exc:
+                raise RuntimeError(f"Ollama HTTP error: {exc}\n{resp.text}")
 
-        data = resp.json()
+            data = resp.json()
 
-        # Ollama returns: {"message": {"role": "assistant", "content": "..."}, ...}
         content = data.get("message", {}).get("content", "")
-
         elapsed = time.time() - start
-        logger.info(f"[OllamaAdapter][{tag}] ← {len(content)} chars in {elapsed:.2f}s")
+        logger.info(f"[OllamaAdapter][{tag}] ← {len(content)} chars from {model} in {elapsed:.2f}s")
 
         return content
 
-    # ------------------------------------------------------------------
-    # Health check
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------ #
+    # Health / discovery helpers                                         #
+    # ------------------------------------------------------------------ #
 
     def is_available(self) -> bool:
-        """Return True if Ollama is reachable and the model exists."""
+        """
+        Return True if Ollama is reachable and at least one configured model exists.
+        """
         try:
             resp = requests.get(f"{self.base_url}/api/tags", timeout=5)
             resp.raise_for_status()
             models = [m["name"] for m in resp.json().get("models", [])]
-            # Accept partial match (e.g. "deepseek-r1:1.5b" contains "deepseek-r1")
-            return any(self.model in m or m.startswith(self.model.split(":")[0]) for m in models)
+
+            candidates = {
+                self.reasoner_model,
+                self.coder_model,
+                self.general_model,
+            }
+            candidates = {c for c in candidates if c}
+
+            for c in candidates:
+                if any(c == m or m.startswith(c.split(":")[0]) for m in models):
+                    return True
+            return False
         except Exception:
             return False
 

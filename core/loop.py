@@ -3,8 +3,6 @@ NEXUS Loop — Plan → Code → Execute → Debug → Fix → Verify
 This is the autonomous engine. Runs until tests pass or max_retries hit.
 """
 import logging
-import json
-import re
 from typing import Optional
 from .executor import CodeExecutor
 from .file_manager import FileManager
@@ -147,6 +145,7 @@ Return JSON with ONE of these strategies:
             logger.info("Applying cached fix strategy")
 
     def _ask_llm(self, role: str, prompt: str) -> dict:
+        import json, re
         try:
             response = self.llm.generate(prompt, role=role)
             # Extract JSON from markdown code blocks if present
