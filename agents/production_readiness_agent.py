@@ -26,16 +26,16 @@ class ProductionReadinessAgent(BaseAgent):
         - monitoring_config: Monitoring and alerting setup
     """
     
-    def __init__(self, llm_adapter: Any, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, llm_adapter: Any = None):
         super().__init__(
             agent_type=AgentType.PRODUCTION_READINESS,
-            llm_adapter=llm_adapter,
-            config=config
+            config=config,
+            llm_adapter=llm_adapter
         )
         
         self.readiness_threshold = self.config.get('readiness_threshold', 90)
     
-    def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    async def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """Validate input data"""
         errors = []
         
@@ -44,7 +44,7 @@ class ProductionReadinessAgent(BaseAgent):
         
         return len(errors) == 0, errors
     
-    def execute(self, inputs: Dict[str, Any]) -> AgentResult:
+    async def execute(self, inputs: Dict[str, Any]) -> AgentResult:
         """
         Execute production readiness validation
         
@@ -54,7 +54,7 @@ class ProductionReadinessAgent(BaseAgent):
         Returns:
             AgentResult with readiness assessment
         """
-        self.logger.info("Starting production readiness validation")
+        self.logger.info("Starting production readiness validation (Async)")
         
         frontend = inputs.get('frontend_outputs', {})
         backend = inputs.get('backend_outputs', {})
@@ -63,35 +63,35 @@ class ProductionReadinessAgent(BaseAgent):
         
         # Step 1: Environment configuration check
         self.logger.info("Checking environment configuration")
-        env_check = self._check_environment_config(frontend, backend)
+        env_check = await self._check_environment_config(frontend, backend)
         
         # Step 2: Database readiness
         self.logger.info("Checking database readiness")
-        db_check = self._check_database_readiness(backend)
+        db_check = await self._check_database_readiness(backend)
         
         # Step 3: API health checks
         self.logger.info("Validating API health endpoints")
-        api_check = self._check_api_health(backend)
+        api_check = await self._check_api_health(backend)
         
         # Step 4: Frontend build optimization
         self.logger.info("Checking frontend build optimization")
-        frontend_check = self._check_frontend_optimization(frontend)
+        frontend_check = await self._check_frontend_optimization(frontend)
         
         # Step 5: Security headers and HTTPS
         self.logger.info("Validating security configuration")
-        security_check = self._check_security_config(backend, security_report)
+        security_check = await self._check_security_config(backend, security_report)
         
         # Step 6: Monitoring and logging
         self.logger.info("Checking monitoring setup")
-        monitoring_check = self._check_monitoring(backend)
+        monitoring_check = await self._check_monitoring(backend)
         
         # Step 7: Backup and recovery
         self.logger.info("Validating backup strategy")
-        backup_check = self._check_backup_strategy(backend)
+        backup_check = await self._check_backup_strategy(backend)
         
         # Step 8: Performance and scalability
         self.logger.info("Checking performance readiness")
-        performance_check = self._check_performance(frontend, backend)
+        performance_check = await self._check_performance(frontend, backend)
         
         # Compile all checks
         all_checks = {
@@ -133,7 +133,7 @@ class ProductionReadinessAgent(BaseAgent):
             decision=f"Production readiness: {readiness_score}/100, "
                    f"{'READY' if success else 'NOT READY'}",
             reasoning=f"Passed {sum(1 for c in all_checks.values() if c['passed'])}/{len(all_checks)} checks, "
-                     f"Critical failures: {len(critical_failures)}"
+                     f"Critical failures: {len(critical_failures)} (Async)"
         )
         
         return AgentResult(
@@ -157,7 +157,7 @@ class ProductionReadinessAgent(BaseAgent):
             errors=[] if success else [f"Critical failures: {', '.join(critical_failures)}"]
         )
     
-    def _check_environment_config(
+    async def _check_environment_config(
         self,
         frontend: Dict[str, Any],
         backend: Dict[str, Any]
@@ -189,7 +189,7 @@ class ProductionReadinessAgent(BaseAgent):
             'recommendations': ['Add environment variable validation', 'Document all required env vars']
         }
     
-    def _check_database_readiness(self, backend: Dict[str, Any]) -> Dict[str, Any]:
+    async def _check_database_readiness(self, backend: Dict[str, Any]) -> Dict[str, Any]:
         """Check database configuration and migrations"""
         
         issues = []
@@ -218,7 +218,7 @@ class ProductionReadinessAgent(BaseAgent):
             'recommendations': ['Set up connection pooling', 'Test migrations in staging']
         }
     
-    def _check_api_health(self, backend: Dict[str, Any]) -> Dict[str, Any]:
+    async def _check_api_health(self, backend: Dict[str, Any]) -> Dict[str, Any]:
         """Check for health check endpoints"""
         
         issues = []
@@ -253,7 +253,7 @@ class ProductionReadinessAgent(BaseAgent):
             'recommendations': ['Add /health endpoint', 'Add /ready endpoint for k8s']
         }
     
-    def _check_frontend_optimization(self, frontend: Dict[str, Any]) -> Dict[str, Any]:
+    async def _check_frontend_optimization(self, frontend: Dict[str, Any]) -> Dict[str, Any]:
         """Check frontend build optimization"""
         
         issues = []
@@ -282,7 +282,7 @@ class ProductionReadinessAgent(BaseAgent):
             'recommendations': ['Enable code splitting', 'Optimize bundle size', 'Use lazy loading']
         }
     
-    def _check_security_config(
+    async def _check_security_config(
         self,
         backend: Dict[str, Any],
         security_report: Dict[str, Any]
@@ -321,7 +321,7 @@ class ProductionReadinessAgent(BaseAgent):
             'recommendations': ['Fix all critical vulnerabilities', 'Enable HTTPS', 'Set security headers']
         }
     
-    def _check_monitoring(self, backend: Dict[str, Any]) -> Dict[str, Any]:
+    async def _check_monitoring(self, backend: Dict[str, Any]) -> Dict[str, Any]:
         """Check monitoring and logging setup"""
         
         issues = []
@@ -355,7 +355,7 @@ class ProductionReadinessAgent(BaseAgent):
             'recommendations': ['Set up structured logging', 'Configure error tracking (Sentry)', 'Add APM monitoring']
         }
     
-    def _check_backup_strategy(self, backend: Dict[str, Any]) -> Dict[str, Any]:
+    async def _check_backup_strategy(self, backend: Dict[str, Any]) -> Dict[str, Any]:
         """Check backup and recovery strategy"""
         
         issues = []
@@ -378,7 +378,7 @@ class ProductionReadinessAgent(BaseAgent):
             ]
         }
     
-    def _check_performance(
+    async def _check_performance(
         self,
         frontend: Dict[str, Any],
         backend: Dict[str, Any]

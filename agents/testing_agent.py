@@ -26,16 +26,16 @@ class TestingAgent(BaseAgent):
         - failed_tests: List of failed tests
     """
     
-    def __init__(self, llm_adapter: Any, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, llm_adapter: Any = None):
         super().__init__(
             agent_type=AgentType.TESTING,
-            llm_adapter=llm_adapter,
-            config=config
+            config=config,
+            llm_adapter=llm_adapter
         )
         
         self.coverage_threshold = self.config.get('coverage_threshold', 80)
     
-    def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    async def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """Validate input data"""
         errors = []
         
@@ -44,7 +44,7 @@ class TestingAgent(BaseAgent):
         
         return len(errors) == 0, errors
     
-    def execute(self, inputs: Dict[str, Any]) -> AgentResult:
+    async def execute(self, inputs: Dict[str, Any]) -> AgentResult:
         """
         Execute test generation and execution
         
@@ -54,7 +54,7 @@ class TestingAgent(BaseAgent):
         Returns:
             AgentResult with test results
         """
-        self.logger.info("Starting test generation and execution")
+        self.logger.info("Starting test generation and execution (Async)")
         
         frontend = inputs.get('frontend_outputs', {})
         backend = inputs.get('backend_outputs', {})
@@ -62,22 +62,22 @@ class TestingAgent(BaseAgent):
         
         # Step 1: Generate unit tests
         self.logger.info("Generating unit tests")
-        unit_tests = self._generate_unit_tests(frontend, backend)
+        unit_tests = await self._generate_unit_tests(frontend, backend)
         
         # Step 2: Generate integration tests
         self.logger.info("Generating integration tests")
-        integration_tests = self._generate_integration_tests(backend)
+        integration_tests = await self._generate_integration_tests(backend)
         
         # Step 3: Generate E2E tests
         self.logger.info("Generating E2E tests")
-        e2e_tests = self._generate_e2e_tests(requirements, frontend)
+        e2e_tests = await self._generate_e2e_tests(requirements, frontend)
         
         # Step 4: Run tests (simulated)
         self.logger.info("Running tests")
-        test_results = self._run_tests(unit_tests, integration_tests, e2e_tests)
+        test_results = await self._run_tests(unit_tests, integration_tests, e2e_tests)
         
         # Step 5: Generate coverage report
-        coverage_report = self._generate_coverage_report(test_results)
+        coverage_report = await self._generate_coverage_report(test_results)
         
         # Calculate confidence
         confidence = self._calculate_testing_confidence(test_results, coverage_report)
@@ -97,7 +97,7 @@ class TestingAgent(BaseAgent):
             reasoning=f"Coverage: {coverage_report['overall']}%, "
                      f"Unit: {test_results['unit']['passed']}/{test_results['unit']['total']}, "
                      f"Integration: {test_results['integration']['passed']}/{test_results['integration']['total']}, "
-                     f"E2E: {test_results['e2e']['passed']}/{test_results['e2e']['total']}"
+                     f"E2E: {test_results['e2e']['passed']}/{test_results['e2e']['total']} (Async)"
         )
         
         # Collect all test files
@@ -120,7 +120,7 @@ class TestingAgent(BaseAgent):
             errors=[] if success else [f"Coverage {coverage_report['overall']}% < {self.coverage_threshold}%"] if coverage_report['overall'] < self.coverage_threshold else ["Some tests failed"]
         )
     
-    def _generate_unit_tests(
+    async def _generate_unit_tests(
         self,
         frontend: Dict[str, Any],
         backend: Dict[str, Any]
@@ -212,7 +212,7 @@ describe('User Service', () => {
         
         return tests
     
-    def _generate_integration_tests(self, backend: Dict[str, Any]) -> Dict[str, str]:
+    async def _generate_integration_tests(self, backend: Dict[str, Any]) -> Dict[str, str]:
         """Generate integration tests for API endpoints"""
         
         if not backend:
@@ -287,7 +287,7 @@ describe('Database Integration', () => {
         
         return tests
     
-    def _generate_e2e_tests(
+    async def _generate_e2e_tests(
         self,
         requirements: Dict[str, Any],
         frontend: Dict[str, Any]
@@ -370,7 +370,7 @@ test.describe('Task Management Flow', () => {
         
         return tests
     
-    def _run_tests(
+    async def _run_tests(
         self,
         unit_tests: Dict[str, str],
         integration_tests: Dict[str, str],
@@ -424,7 +424,7 @@ test.describe('Task Management Flow', () => {
             'failed': failed
         }
     
-    def _generate_coverage_report(self, test_results: Dict[str, Any]) -> Dict[str, Any]:
+    async def _generate_coverage_report(self, test_results: Dict[str, Any]) -> Dict[str, Any]:
         """Generate code coverage report"""
         
         # Simulated coverage data

@@ -14,39 +14,65 @@ root_dir = os.path.dirname(os.path.abspath(__file__))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from antigravity.llm.llm_router import route_task
+from orchestration.orchestrator_v3 import OrchestratorV3
+from core.model_caller import call_model_async
+import asyncio
 
 # Initialize FastMCP
 mcp = FastMCP("Eigent")
 
-@mcp.tool()
-def hybrid_reasoning(prompt: str, agent_type: str = "product_interpreter") -> str:
-    """
-    Useful for high-complexity architecture or deep debugging. 
-    Routes tasks between Kimi K2.5 (complex) and local Ollama (fast).
-    
-    Args:
-        prompt: The task or query to process.
-        agent_type: Optional context (product_interpreter, architect, debug, testing).
-    """
-    print(f"🌀 Eigent Routing: {prompt[:50]}...")
-    try:
-        return route_task(prompt, agent_type=agent_type)
-    except Exception as e:
-        return f"Error routing task: {str(e)}"
+# Shared orchestrator instance
+orch = OrchestratorV3()
 
 @mcp.tool()
-def list_routing_config() -> str:
-    """Returns the current LLM routing table."""
-    from antigravity.llm.setup_llm import build_llm_adapter
-    from antigravity.llm.llm_router import MultiLLMRouter
+async def hybrid_reasoning(prompt: str, agent_role: str = "glm-nim") -> str:
+    """
+    Direct access to specialized NVIDIA NIM models (glm-nim, minimax-nim, kimi-nim, nemotron).
+    Useful for architectural queries or deep code reasoning.
+    """
+    print(f"🌀 Eigent Reasoning ({agent_role}): {prompt[:50]}...")
+    try:
+        resp = await call_model_async(agent_role, [{"role": "user", "content": prompt}])
+        return resp["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"Error in reasoning: {str(e)}"
+
+@mcp.tool()
+async def generate_project(prompt: str, context: str = "{}") -> str:
+    """
+    Triggers the full Eigent v3 Multi-Agent graph to build a project from a description.
+    Runs in the background and returns a Project ID.
+    """
+    import json
+    try:
+        ctx_dict = json.loads(context)
+        project_id = orch.create_project(prompt, ctx_dict)
+        # Trigger background execution
+        asyncio.create_task(orch.arun(project_id))
+        return f"🚀 Project generation started! ID: {project_id}\nYou can check status using get_project_status."
+    except Exception as e:
+        return f"Error starting project: {str(e)}"
+
+@mcp.tool()
+def get_project_status(project_id: str) -> str:
+    """
+    Checks the status and current stage of an Eigent project.
+    """
+    status = orch.get_project_status(project_id)
+    if 'error' in status:
+        return f"❌ {status['error']}"
     
-    adapter = build_llm_adapter()
-    if isinstance(adapter, MultiLLMRouter):
-        table = adapter.get_routing_table()
-        lines = [f"{k:20s} -> {v}" for k, v in table.items()]
-        return "Eigent Routing Config:\n" + "\n".join(lines)
-    return "Router not active (single LLM mode)."
+    return (
+        f"📊 Project Status: {status['status'].upper()}\n"
+        f"📍 Stage: {status['current_stage']}\n"
+        f"📝 Prompt: {status['prompt'][:100]}...\n"
+        f"⚠️ Errors: {', '.join(status['errors']) if status['errors'] else 'None'}"
+    )
+
+@mcp.tool()
+def list_nim_models() -> str:
+    """Returns the available NVIDIA NIM models in the framework."""
+    return "Eigent NIM Stack: minimax-nim (Planner), glm-nim (Coder), kimi-nim (Security), nemotron (Debug)"
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

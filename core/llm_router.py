@@ -117,6 +117,7 @@ class LLMRouter:
     # ------------------------------------------------------------------ #
 
     def _nvidia(self, prompt: str, max_tokens: int) -> str:
+        """Kimi K2.5 via NVIDIA API."""
         import requests as _r
 
         headers = {
@@ -124,7 +125,7 @@ class LLMRouter:
             "Content-Type": "application/json",
         }
         payload = {
-            "model": "mistralai/mixtral-8x22b-instruct-v0.1",
+            "model": "moonshotai/kimi-k2.5",
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
             "temperature": 0.2,

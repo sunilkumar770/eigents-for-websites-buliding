@@ -26,16 +26,16 @@ class DebugAgent(BaseAgent):
         - retest_results: Results after applying fixes
     """
     
-    def __init__(self, llm_adapter: Any, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, llm_adapter: Any = None):
         super().__init__(
             agent_type=AgentType.DEBUG,
-            llm_adapter=llm_adapter,
-            config=config
+            config=config,
+            llm_adapter=llm_adapter
         )
         
         self.max_fix_attempts = self.config.get('max_fix_attempts', 3)
     
-    def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    async def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """Validate input data"""
         errors = []
         
@@ -47,7 +47,7 @@ class DebugAgent(BaseAgent):
         
         return len(errors) == 0, errors
     
-    def execute(self, inputs: Dict[str, Any]) -> AgentResult:
+    async def execute(self, inputs: Dict[str, Any]) -> AgentResult:
         """
         Execute debugging and fixing
         
@@ -57,7 +57,7 @@ class DebugAgent(BaseAgent):
         Returns:
             AgentResult with fixes and updated code
         """
-        self.logger.info("Starting error analysis and fixing")
+        self.logger.info("Starting error analysis and fixing (Async)")
         
         error_report = inputs['error_report']
         code_context = inputs['code_context']
@@ -65,19 +65,19 @@ class DebugAgent(BaseAgent):
         
         # Step 1: Analyze root cause
         self.logger.info("Analyzing root cause")
-        root_cause = self._analyze_root_cause(error_report, code_context)
+        root_cause = await self._analyze_root_cause(error_report, code_context)
         
         # Step 2: Generate fixes
         self.logger.info("Generating fixes")
-        fixes = self._generate_fixes(root_cause, code_context)
+        fixes = await self._generate_fixes(root_cause, code_context)
         
         # Step 3: Apply fixes
         self.logger.info("Applying fixes")
-        fixed_code = self._apply_fixes(fixes, code_context)
+        fixed_code = await self._apply_fixes(fixes, code_context)
         
         # Step 4: Verify fixes (simulate re-running tests)
         self.logger.info("Verifying fixes")
-        retest_results = self._verify_fixes(fixed_code, test_results)
+        retest_results = await self._verify_fixes(fixed_code, test_results)
         
         # Determine success
         success = retest_results.get('all_passed', False)
@@ -95,7 +95,7 @@ class DebugAgent(BaseAgent):
                    f"{'all tests passed' if success else 'some tests still failing'}",
             reasoning=f"Root cause: {root_cause['category']}, "
                      f"Fixes: {[f['type'] for f in fixes]}, "
-                     f"confidence: {confidence}%"
+                     f"confidence: {confidence}% (Async)"
         )
         
         return AgentResult(
@@ -114,7 +114,7 @@ class DebugAgent(BaseAgent):
             errors=[] if success else [f"Tests still failing after fixes: {retest_results.get('failed_count', 0)}"]
         )
     
-    def _analyze_root_cause(
+    async def _analyze_root_cause(
         self,
         error_report: Dict[str, Any],
         code_context: Dict[str, Any]
@@ -155,7 +155,7 @@ Return JSON:
 }}
 """
         
-        response = self._call_llm(prompt, temperature=0.3)
+        response = await self._call_llm(prompt, temperature=0.3)
         analysis = self._parse_json_from_llm(response)
         
         if not analysis:
@@ -189,7 +189,7 @@ Return JSON:
         else:
             return 'unknown'
     
-    def _generate_fixes(
+    async def _generate_fixes(
         self,
         root_cause: Dict[str, Any],
         code_context: Dict[str, Any]
@@ -242,7 +242,7 @@ Return JSON:
         
         return fixes
     
-    def _apply_fixes(
+    async def _apply_fixes(
         self,
         fixes: List[Dict[str, Any]],
         code_context: Dict[str, Any]
@@ -283,7 +283,7 @@ Return JSON:
         
         return fixed_code
     
-    def _verify_fixes(
+    async def _verify_fixes(
         self,
         fixed_code: Dict[str, str],
         original_test_results: Dict[str, Any]

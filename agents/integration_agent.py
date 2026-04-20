@@ -26,14 +26,14 @@ class IntegrationAgent(BaseAgent):
         - compatibility_report: Compatibility analysis
     """
     
-    def __init__(self, llm_adapter: Any, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, llm_adapter: Any = None):
         super().__init__(
             agent_type=AgentType.INTEGRATION,
-            llm_adapter=llm_adapter,
-            config=config
+            config=config,
+            llm_adapter=llm_adapter
         )
     
-    def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    async def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """Validate input data"""
         errors = []
         
@@ -45,7 +45,7 @@ class IntegrationAgent(BaseAgent):
         
         return len(errors) == 0, errors
     
-    def execute(self, inputs: Dict[str, Any]) -> AgentResult:
+    async def execute(self, inputs: Dict[str, Any]) -> AgentResult:
         """
         Execute integration
         
@@ -55,29 +55,29 @@ class IntegrationAgent(BaseAgent):
         Returns:
             AgentResult with integration artifacts
         """
-        self.logger.info("Starting frontend-backend integration")
+        self.logger.info("Starting frontend-backend integration (Async)")
         
         frontend = inputs['frontend_outputs']
         backend = inputs['backend_outputs']
         
         # Step 1: Analyze compatibility
         self.logger.info("Analyzing API compatibility")
-        compatibility = self._analyze_compatibility(frontend, backend)
+        compatibility = await self._analyze_compatibility(frontend, backend)
         
         # Step 2: Generate API client
         self.logger.info("Generating API client for frontend")
-        api_client = self._generate_api_client(backend, frontend)
+        api_client = await self._generate_api_client(backend, frontend)
         
         # Step 3: Fix integration issues
         self.logger.info("Fixing integration issues")
-        fixes = self._fix_integration_issues(compatibility, frontend, backend)
+        fixes = await self._fix_integration_issues(compatibility, frontend, backend)
         
         # Step 4: Configure CORS
         cors_config = self._configure_cors(frontend, backend)
         
         # Step 5: Generate integration tests
         self.logger.info("Generating integration tests")
-        integration_tests = self._generate_integration_tests(frontend, backend)
+        integration_tests = await self._generate_integration_tests(frontend, backend)
         
         # Calculate confidence
         confidence = self._calculate_integration_confidence(
@@ -91,7 +91,7 @@ class IntegrationAgent(BaseAgent):
             decision=f"Integrated frontend and backend with {len(fixes)} fixes applied",
             reasoning=f"Compatibility score: {compatibility['score']}%, "
                      f"Generated API client with {len(api_client['methods'])} methods, "
-                     f"confidence: {confidence}%"
+                     f"confidence: {confidence}% (Async)"
         )
         
         return AgentResult(
@@ -111,7 +111,7 @@ class IntegrationAgent(BaseAgent):
             }
         )
     
-    def _analyze_compatibility(
+    async def _analyze_compatibility(
         self,
         frontend: Dict[str, Any],
         backend: Dict[str, Any]
@@ -160,7 +160,7 @@ class IntegrationAgent(BaseAgent):
             'frontend_routes': [r['path'] for r in frontend_routes]
         }
     
-    def _generate_api_client(
+    async def _generate_api_client(
         self,
         backend: Dict[str, Any],
         frontend: Dict[str, Any]
@@ -290,7 +290,7 @@ export default api;
         """Generate Vue API client"""
         return "// Vue API client implementation"
     
-    def _fix_integration_issues(
+    async def _fix_integration_issues(
         self,
         compatibility: Dict[str, Any],
         frontend: Dict[str, Any],
@@ -359,7 +359,7 @@ app.use(cors(corsOptions));
         
         return cors_config
     
-    def _generate_integration_tests(
+    async def _generate_integration_tests(
         self,
         frontend: Dict[str, Any],
         backend: Dict[str, Any]

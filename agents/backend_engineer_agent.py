@@ -6,6 +6,7 @@ authentication, and business logic.
 """
 
 import json
+import asyncio
 from typing import Dict, List, Any, Tuple, Optional
 from agents.base_agent import BaseAgent, AgentType, AgentResult
 
@@ -26,11 +27,11 @@ class BackendEngineerAgent(BaseAgent):
         - setup_instructions: How to run the backend
     """
     
-    def __init__(self, llm_adapter: Any, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, llm_adapter: Any = None):
         super().__init__(
             agent_type=AgentType.BACKEND_ENGINEER,
-            llm_adapter=llm_adapter,
-            config=config
+            config=config,
+            llm_adapter=llm_adapter
         )
         
         # Default backend config
@@ -45,7 +46,7 @@ class BackendEngineerAgent(BaseAgent):
             'rate_limiting': True
         }
     
-    def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    async def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """Validate input data"""
         errors = []
         
@@ -60,7 +61,7 @@ class BackendEngineerAgent(BaseAgent):
         
         return len(errors) == 0, errors
     
-    def execute(self, inputs: Dict[str, Any]) -> AgentResult:
+    async def execute(self, inputs: Dict[str, Any]) -> AgentResult:
         """
         Execute backend code generation
         
@@ -70,22 +71,22 @@ class BackendEngineerAgent(BaseAgent):
         Returns:
             AgentResult with generated backend code
         """
-        self.logger.info("Starting backend code generation")
+        self.logger.info("Starting backend code generation (Async)")
         
         requirements = inputs['requirements']
         config = {**self.default_config, **inputs.get('config', {})}
         
         # Step 1: Design API architecture
         self.logger.info("Designing API architecture")
-        api_design = self._design_api(requirements, config)
+        api_design = await self._design_api(requirements, config)
         
         # Step 2: Design database schema
         self.logger.info("Designing database schema")
-        db_schema = self._design_database(requirements, config)
+        db_schema = await self._design_database(requirements, config)
         
         # Step 3: Generate code files
         self.logger.info("Generating code files")
-        code_files = self._generate_code_files(
+        code_files = await self._generate_code_files(
             requirements,
             api_design,
             db_schema,
@@ -114,7 +115,7 @@ class BackendEngineerAgent(BaseAgent):
             decision=f"Generated {config['backend']} backend with {len(api_design['endpoints'])} endpoints",
             reasoning=f"Created {len(db_schema['tables'])} database tables, "
                      f"using {config['framework']} framework, "
-                     f"confidence: {confidence}%"
+                     f"confidence: {confidence}% (Async)"
         )
         
         return AgentResult(
@@ -138,7 +139,7 @@ class BackendEngineerAgent(BaseAgent):
             }
         )
     
-    def _design_api(
+    async def _design_api(
         self,
         requirements: Dict[str, Any],
         config: Dict[str, Any]
@@ -187,7 +188,7 @@ Include endpoints for:
 Return ONLY the JSON, no additional text.
 """
         
-        response = self._call_llm(prompt, temperature=0.5)
+        response = await self._call_llm(prompt, temperature=0.5)
         api_design = self._parse_json_from_llm(response)
         
         if not api_design:
@@ -210,7 +211,7 @@ Return ONLY the JSON, no additional text.
             'middleware': ['auth', 'validation', 'error-handling']
         }
     
-    def _design_database(
+    async def _design_database(
         self,
         requirements: Dict[str, Any],
         config: Dict[str, Any]
@@ -263,7 +264,7 @@ Include:
 Return ONLY the JSON, no additional text.
 """
         
-        response = self._call_llm(prompt, temperature=0.5)
+        response = await self._call_llm(prompt, temperature=0.5)
         db_schema = self._parse_json_from_llm(response)
         
         if not db_schema:
@@ -291,7 +292,7 @@ Return ONLY the JSON, no additional text.
             'relationships': []
         }
     
-    def _generate_code_files(
+    async def _generate_code_files(
         self,
         requirements: Dict[str, Any],
         api_design: Dict[str, Any],
@@ -305,15 +306,25 @@ Return ONLY the JSON, no additional text.
         # Generate server entry point
         code_files['src/server.js'] = self._generate_server_file(config)
         
-        # Generate controllers
+        # Parallelize controllers and models
+        ctrl_tasks = []
         for controller in api_design.get('controllers', []):
-            path = f"src/controllers/{controller['name']}.js"
-            code_files[path] = self._generate_controller(controller, config)
+            ctrl_tasks.append(self._generate_controller(controller, config))
         
-        # Generate models
+        model_tasks = []
         for table in db_schema.get('tables', []):
+            model_tasks.append(self._generate_model(table, config))
+            
+        ctrl_results = await asyncio.gather(*ctrl_tasks) if ctrl_tasks else []
+        model_results = await asyncio.gather(*model_tasks) if model_tasks else []
+        
+        for i, controller in enumerate(api_design.get('controllers', [])):
+            path = f"src/controllers/{controller['name']}.js"
+            code_files[path] = ctrl_results[i]
+            
+        for i, table in enumerate(db_schema.get('tables', [])):
             path = f"src/models/{table['name'].capitalize()}.js"
-            code_files[path] = self._generate_model(table, config)
+            code_files[path] = model_results[i]
         
         # Generate middleware
         code_files['src/middleware/auth.js'] = self._generate_auth_middleware(config)
@@ -433,7 +444,7 @@ if __name__ == "__main__":
         else:
             return "// Go server implementation"
     
-    def _generate_controller(self, controller: Dict[str, Any], config: Dict[str, Any]) -> str:
+    async def _generate_controller(self, controller: Dict[str, Any], config: Dict[str, Any]) -> str:
         """Generate controller code"""
         
         prompt = f"""
@@ -451,10 +462,10 @@ Include:
 Return ONLY the code, no explanations.
 """
         
-        code = self._call_llm(prompt, temperature=0.3, max_tokens=2048)
+        code = await self._call_llm(prompt, temperature=0.3, max_tokens=2048)
         return self._clean_code(code)
     
-    def _generate_model(self, table: Dict[str, Any], config: Dict[str, Any]) -> str:
+    async def _generate_model(self, table: Dict[str, Any], config: Dict[str, Any]) -> str:
         """Generate database model"""
         
         if config['orm'] == 'prisma':

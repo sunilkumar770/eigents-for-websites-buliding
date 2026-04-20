@@ -23,7 +23,8 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from orchestration.workflow_orchestrator import WorkflowOrchestrator
+# from orchestration.workflow_orchestrator import WorkflowOrchestrator # Legacy
+from orchestration.orchestrator_v3 import OrchestratorV3
 from orchestration.message_bus import MessageType, get_message_bus
 from orchestration.state_manager import WorkflowStatus
 
@@ -76,7 +77,7 @@ app.add_middleware(
 )
 
 # Global orchestrator instance
-orchestrator: Optional[WorkflowOrchestrator] = None
+orchestrator: Optional[OrchestratorV3] = None
 message_bus = get_message_bus()
 
 # WebSocket connections
@@ -92,11 +93,8 @@ async def startup_event():
     # - Kimi K2.5 (NVIDIA API) if NVIDIA_API_KEY is set
     # - Ollama (local)          if Ollama is running
     # - MultiLLMRouter          if both are available (recommended)
-    from antigravity.llm.setup_llm import build_llm_adapter
-    adapter = build_llm_adapter()
-    
-    # Initialize orchestrator
-    orchestrator = WorkflowOrchestrator(llm_adapter=adapter)
+    # Initialize v3 orchestrator
+    orchestrator = OrchestratorV3()
     
     # Subscribe to message bus for WebSocket updates
     message_bus.subscribe(MessageType.TASK_STARTED, broadcast_message)
@@ -130,9 +128,9 @@ def broadcast_message(message):
 
 
 async def process_workflow_background(project_id: str):
-    """Process workflow in background"""
+    """Process workflow in background (v3)"""
     try:
-        orchestrator.run(max_iterations=50)
+        await orchestrator.arun(project_id)
     except Exception as e:
         logging.error(f"Error processing workflow {project_id}: {e}", exc_info=True)
 

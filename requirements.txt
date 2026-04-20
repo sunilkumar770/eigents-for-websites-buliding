@@ -1,7 +1,9 @@
-fastapi
-uvicorn
-requests
-python-dotenv
-fastmcp
-pytest
-pytest-asyncio
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+fastmcp>=0.1.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.25.0
+pydantic>=2.0.0

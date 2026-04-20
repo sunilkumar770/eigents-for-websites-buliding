@@ -25,17 +25,17 @@ class SecurityAgent(BaseAgent):
         - recommendations: Fix recommendations
     """
     
-    def __init__(self, llm_adapter: Any, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None, llm_adapter: Any = None):
         super().__init__(
             agent_type=AgentType.SECURITY,
-            llm_adapter=llm_adapter,
-            config=config
+            config=config,
+            llm_adapter=llm_adapter
         )
         
         self.security_threshold = self.config.get('security_threshold', 90)
         self.quality_threshold = self.config.get('quality_threshold', 80)
     
-    def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    async def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """Validate input data"""
         errors = []
         
@@ -44,7 +44,7 @@ class SecurityAgent(BaseAgent):
         
         return len(errors) == 0, errors
     
-    def execute(self, inputs: Dict[str, Any]) -> AgentResult:
+    async def execute(self, inputs: Dict[str, Any]) -> AgentResult:
         """
         Execute security and quality audit
         
@@ -54,7 +54,7 @@ class SecurityAgent(BaseAgent):
         Returns:
             AgentResult with security and quality reports
         """
-        self.logger.info("Starting security and quality audit")
+        self.logger.info("Starting security and quality audit (Async)")
         
         code_files = inputs['code_files']
         dependencies = inputs.get('dependencies', {})
@@ -62,19 +62,19 @@ class SecurityAgent(BaseAgent):
         
         # Step 1: Security audit
         self.logger.info("Performing security audit")
-        security_report = self._security_audit(code_files, api_endpoints)
+        security_report = await self._security_audit(code_files, api_endpoints)
         
         # Step 2: Dependency vulnerability scan
         self.logger.info("Scanning dependencies")
-        dependency_report = self._scan_dependencies(dependencies)
+        dependency_report = await self._scan_dependencies(dependencies)
         
         # Step 3: Code quality analysis
         self.logger.info("Analyzing code quality")
-        quality_report = self._quality_analysis(code_files)
+        quality_report = await self._quality_analysis(code_files)
         
         # Step 4: Performance analysis
         self.logger.info("Analyzing performance")
-        performance_report = self._performance_analysis(code_files)
+        performance_report = await self._performance_analysis(code_files)
         
         # Step 5: Generate recommendations
         recommendations = self._generate_recommendations(
@@ -108,7 +108,7 @@ class SecurityAgent(BaseAgent):
             decision=f"Security score: {security_score}/100, Quality score: {quality_score}/100",
             reasoning=f"Found {len(security_report['vulnerabilities'])} security issues, "
                      f"{len(quality_report['issues'])} quality issues, "
-                     f"{'BLOCKING' if has_critical else 'PASSING'}"
+                     f"{'BLOCKING' if has_critical else 'PASSING'} (Async)"
         )
         
         return AgentResult(
@@ -129,7 +129,7 @@ class SecurityAgent(BaseAgent):
             errors=[] if success else [f"Critical security vulnerabilities found: {len([v for v in security_report['vulnerabilities'] if v['severity'] == 'critical'])}"]
         )
     
-    def _security_audit(
+    async def _security_audit(
         self,
         code_files: Dict[str, str],
         api_endpoints: List[Dict[str, Any]]
@@ -326,7 +326,7 @@ class SecurityAgent(BaseAgent):
         
         return issues
     
-    def _scan_dependencies(self, dependencies: Dict[str, Any]) -> Dict[str, Any]:
+    async def _scan_dependencies(self, dependencies: Dict[str, Any]) -> Dict[str, Any]:
         """Scan dependencies for known vulnerabilities"""
         
         # In a real implementation, this would use npm audit or similar
@@ -352,7 +352,7 @@ class SecurityAgent(BaseAgent):
             'vulnerable_count': len(vulnerabilities)
         }
     
-    def _quality_analysis(self, code_files: Dict[str, str]) -> Dict[str, Any]:
+    async def _quality_analysis(self, code_files: Dict[str, str]) -> Dict[str, Any]:
         """Analyze code quality"""
         
         issues = []
@@ -394,7 +394,7 @@ class SecurityAgent(BaseAgent):
             'code_smells': len([i for i in issues if i['type'] == 'Code Smell'])
         }
     
-    def _performance_analysis(self, code_files: Dict[str, str]) -> Dict[str, Any]:
+    async def _performance_analysis(self, code_files: Dict[str, str]) -> Dict[str, Any]:
         """Analyze performance"""
         
         bottlenecks = []
