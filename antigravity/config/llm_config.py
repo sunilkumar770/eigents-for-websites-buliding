@@ -13,7 +13,7 @@ class Config:
     
     # Kimi K2.5 Setup
     KIMI_API_BASE = "https://integrate.api.nvidia.com/v1"
-    KIMI_MODEL = "moonshotai/kimi-k2.5"
+    KIMI_MODEL = "moonshotai/kimi-k2.6"
     
     # Secure API Key retrieval (placeholder for Phase 5)
     @staticmethod

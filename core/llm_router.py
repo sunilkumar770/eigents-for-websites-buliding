@@ -125,7 +125,7 @@ class LLMRouter:
             "Content-Type": "application/json",
         }
         payload = {
-            "model": "moonshotai/kimi-k2.5",
+            "model": "moonshotai/kimi-k2.6",
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens,
             "temperature": 0.2,

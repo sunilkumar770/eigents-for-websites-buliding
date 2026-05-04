@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from core.graph_builder import build_graph
+from core.execution.graph_compiler import compile_v3_graph
 from core.agent_state import AgentState
 from orchestration.state_manager import StateManager, WorkflowStatus, WorkflowState
 from orchestration.message_bus import MessageBus, MessageType, get_message_bus
@@ -29,7 +29,7 @@ class OrchestratorV3:
     ):
         self.state_manager = state_manager or StateManager()
         self.message_bus = message_bus or get_message_bus()
-        self.graph = build_graph()
+        self.graph = compile_v3_graph()
         logger.info("OrchestratorV3 initialized with v3 StateGraph")
 
     def create_project(self, prompt: str, context: Optional[Dict[str, Any]] = None) -> str:

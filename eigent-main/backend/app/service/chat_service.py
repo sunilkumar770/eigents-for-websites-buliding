@@ -28,8 +28,8 @@ from fastapi import Request
 from inflection import titleize
 from pydash import chain
 
-from app.agent.agent_model import agent_model
-from app.agent.factory import (
+from app.infrastructure.camel.agent_model import agent_model
+from app.infrastructure.factory import (
     browser_agent,
     developer_agent,
     document_agent,
@@ -38,14 +38,14 @@ from app.agent.factory import (
     question_confirm_agent,
     task_summary_agent,
 )
-from app.agent.listen_chat_agent import ListenChatAgent
-from app.agent.toolkit.human_toolkit import HumanToolkit
-from app.agent.toolkit.note_taking_toolkit import NoteTakingToolkit
-from app.agent.toolkit.terminal_toolkit import TerminalToolkit
-from app.agent.tools import get_mcp_tools, get_toolkits
+from app.infrastructure.camel.listen_chat_agent import ListenChatAgent
+from app.infrastructure.toolkit.human_toolkit import HumanToolkit
+from app.infrastructure.toolkit.note_taking_toolkit import NoteTakingToolkit
+from app.infrastructure.toolkit.terminal_toolkit import TerminalToolkit
+from app.infrastructure.toolkit.tools import get_mcp_tools, get_toolkits
 from app.model.chat import Chat, NewAgent, Status, TaskContent, sse_json
+from core.contracts.actions import Action
 from app.service.task import (
-    Action,
     ActionDecomposeProgressData,
     ActionDecomposeTextData,
     ActionImproveData,
@@ -442,10 +442,10 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
             continue
 
         try:
-            if item.action == Action.improve or start_event_loop:
+            if item.action == Action.IMPROVE or start_event_loop:
                 logger.info("=" * 80)
                 logger.info(
-                    "[NEW-QUESTION] Action.improve "
+                    "[NEW-QUESTION] Action.IMPROVE "
                     "received or start_event_loop",
                     extra={
                         "project_id": options.project_id,
@@ -849,7 +849,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                     bg_task = asyncio.create_task(run_decomposition())
                     task_lock.add_background_task(bg_task)
 
-            elif item.action == Action.update_task:
+            elif item.action == Action.UPDATE_TASK:
                 assert camel_task is not None
                 update_tasks = {item.id: item for item in item.data.task}
                 # Use stored decomposition results if available
@@ -867,14 +867,14 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                 # workforce.eigent_start uses correct list
                 sub_tasks.extend(new_tasks)
                 # Save updated sub_tasks back to
-                # task_lock so Action.start uses
+                # task_lock so Action.START uses
                 # the correct list
                 task_lock.decompose_sub_tasks = sub_tasks
                 summary_task_content_local = getattr(
                     task_lock, "summary_task_content", summary_task_content
                 )
                 yield to_sub_tasks(camel_task, summary_task_content_local)
-            elif item.action == Action.add_task:
+            elif item.action == Action.ADD_TASK:
                 # Check if this might be a misrouted second question
                 if camel_task is None and workforce is None:
                     logger.error(
@@ -921,7 +921,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                     "task_id": item.task_id or (len(camel_task.subtasks) + 1),
                 }
                 yield sse_json("add_task", returnData)
-            elif item.action == Action.remove_task:
+            elif item.action == Action.REMOVE_TASK:
                 if workforce is None:
                     logger.error(
                         "Cannot remove task: "
@@ -945,7 +945,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                     "task_id": item.task_id,
                 }
                 yield sse_json("remove_task", returnData)
-            elif item.action == Action.skip_task:
+            elif item.action == Action.SKIP_TASK:
                 logger.info("=" * 80)
                 logger.info(
                     "🛑 [LIFECYCLE] SKIP_TASK action "
@@ -1015,7 +1015,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                         "project_id mismatch"
                     )
 
-                # Mark task as done and preserve context (like Action.end does)
+                # Mark task as done and preserve context (like Action.END does)
                 task_lock.status = Status.done
                 end_message = (
                     "<summary>Task stopped</summary>Task stopped by user"
@@ -1063,7 +1063,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                 # Continue loop to accept new
                 # questions (don't break, don't
                 # delete task_lock)
-            elif item.action == Action.start:
+            elif item.action == Action.START:
                 # Check conversation history length before starting task
                 is_exceeded, total_length = check_conversation_history_length(
                     task_lock
@@ -1106,7 +1106,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                     sub_tasks = getattr(task_lock, "decompose_sub_tasks", [])
                 task = asyncio.create_task(workforce.eigent_start(sub_tasks))
                 task_lock.add_background_task(task)
-            elif item.action == Action.task_state:
+            elif item.action == Action.TASK_STATE:
                 # Track completed task results for the end event
                 task_id = item.data.get("task_id", "unknown")
                 task_state = item.data.get("state", "unknown")
@@ -1116,7 +1116,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                     last_completed_task_result = task_result
 
                 yield sse_json("task_state", item.data)
-            elif item.action == Action.new_task_state:
+            elif item.action == Action.NEW_TASK_STATE:
                 logger.info("=" * 80)
                 logger.info(
                     "[LIFECYCLE] NEW_TASK_STATE action received (Multi-turn)",
@@ -1502,19 +1502,19 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                         )
                     if not new_task_content:
                         logger.warning("[TRACE] No new task content provided")
-            elif item.action == Action.create_agent:
+            elif item.action == Action.CREATE_AGENT:
                 yield sse_json("create_agent", item.data)
-            elif item.action == Action.activate_agent:
+            elif item.action == Action.ACTIVATE_AGENT:
                 yield sse_json("activate_agent", item.data)
-            elif item.action == Action.deactivate_agent:
+            elif item.action == Action.DEACTIVATE_AGENT:
                 yield sse_json("deactivate_agent", dict(item.data))
-            elif item.action == Action.assign_task:
+            elif item.action == Action.ASSIGN_TASK:
                 yield sse_json("assign_task", item.data)
-            elif item.action == Action.activate_toolkit:
+            elif item.action == Action.ACTIVATE_TOOLKIT:
                 yield sse_json("activate_toolkit", item.data)
-            elif item.action == Action.deactivate_toolkit:
+            elif item.action == Action.DEACTIVATE_TOOLKIT:
                 yield sse_json("deactivate_toolkit", item.data)
-            elif item.action == Action.write_file:
+            elif item.action == Action.WRITE_FILE:
                 yield sse_json(
                     "write_file",
                     {
@@ -1522,9 +1522,9 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                         "process_task_id": item.process_task_id,
                     },
                 )
-            elif item.action == Action.ask:
+            elif item.action == Action.ASK:
                 yield sse_json("ask", item.data)
-            elif item.action == Action.notice:
+            elif item.action == Action.NOTICE:
                 yield sse_json(
                     "notice",
                     {
@@ -1532,9 +1532,9 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                         "process_task_id": item.process_task_id,
                     },
                 )
-            elif item.action == Action.search_mcp:
+            elif item.action == Action.SEARCH_MCP:
                 yield sse_json("search_mcp", item.data)
-            elif item.action == Action.install_mcp:
+            elif item.action == Action.INSTALL_MCP:
                 if mcp is None:
                     logger.error(
                         "Cannot install MCP: mcp "
@@ -1553,7 +1553,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                     continue
                 task = asyncio.create_task(install_mcp(mcp, item))
                 task_lock.add_background_task(task)
-            elif item.action == Action.terminal:
+            elif item.action == Action.TERMINAL:
                 yield sse_json(
                     "terminal",
                     {
@@ -1561,7 +1561,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                         "process_task_id": item.process_task_id,
                     },
                 )
-            elif item.action == Action.pause:
+            elif item.action == Action.PAUSE:
                 if workforce is not None:
                     workforce.pause()
                     logger.info(
@@ -1573,7 +1573,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                         "None for project "
                         f"{options.project_id}"
                     )
-            elif item.action == Action.resume:
+            elif item.action == Action.RESUME:
                 if workforce is not None:
                     workforce.resume()
                     logger.info(
@@ -1585,11 +1585,11 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                         "is None for project "
                         f"{options.project_id}"
                     )
-            elif item.action == Action.decompose_text:
+            elif item.action == Action.DECOMPOSE_TEXT:
                 yield sse_json("decompose_text", item.data)
-            elif item.action == Action.decompose_progress:
+            elif item.action == Action.DECOMPOSE_PROGRESS:
                 yield sse_json("to_sub_tasks", item.data)
-            elif item.action == Action.new_agent:
+            elif item.action == Action.NEW_AGENT:
                 if workforce is not None:
                     workforce.pause()
                     workforce.add_single_agent_worker(
@@ -1597,7 +1597,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                         await new_agent_model(item, options),
                     )
                     workforce.resume()
-            elif item.action == Action.timeout:
+            elif item.action == Action.TIMEOUT:
                 logger.info("=" * 80)
                 logger.info(
                     "[LIFECYCLE] TIMEOUT action "
@@ -1629,7 +1629,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                     },
                 )
 
-            elif item.action == Action.end:
+            elif item.action == Action.END:
                 logger.info("=" * 80)
                 logger.info(
                     "[LIFECYCLE] END action "
@@ -1746,7 +1746,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                         " reset for project "
                         f"{options.project_id}"
                     )
-            elif item.action == Action.supplement:
+            elif item.action == Action.SUPPLEMENT:
                 # Check if this might be a misrouted second question
                 if camel_task is None:
                     logger.warning(
@@ -1777,13 +1777,13 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                             workforce.eigent_start(camel_task.subtasks)
                         )
                         task_lock.add_background_task(task)
-            elif item.action == Action.budget_not_enough:
+            elif item.action == Action.BUDGET_NOT_ENOUGH:
                 if workforce is not None:
                     workforce.pause()
                 yield sse_json(
-                    Action.budget_not_enough, {"message": "budget not enouth"}
+                    Action.BUDGET_NOT_ENOUGH, {"message": "budget not enouth"}
                 )
-            elif item.action == Action.stop:
+            elif item.action == Action.STOP:
                 logger.info("=" * 80)
                 logger.info(
                     "[LIFECYCLE] STOP action received"
@@ -1842,7 +1842,7 @@ async def step_solve(options: Chat, request: Request, task_lock: TaskLock):
                 if "workforce" in locals() and workforce is not None:
                     workforce.pause()
                 yield sse_json(
-                    Action.budget_not_enough, {"message": "budget not enouth"}
+                    Action.BUDGET_NOT_ENOUGH, {"message": "budget not enouth"}
                 )
             else:
                 logger.error(

@@ -36,8 +36,8 @@ from app.model.chat import (
     sse_json,
 )
 from app.service.chat_service import step_solve
+from core.contracts.actions import Action
 from app.service.task import (
-    Action,
     ActionAddTaskData,
     ActionImproveData,
     ActionInstallMcpData,
@@ -386,7 +386,7 @@ def stop(id: str):
             " ActionStopData(Action.stop)"
             " to task_lock queue"
         )
-        asyncio.run(task_lock.put_queue(ActionStopData(action=Action.stop)))
+        asyncio.run(task_lock.put_queue(ActionStopData(action=Action.STOP)))
         chat_logger.info(
             "[STOP-BUTTON] ActionStopData queued"
             " successfully, this will trigger"
@@ -428,7 +428,7 @@ def install_mcp(id: str, data: McpServers):
     task_lock = get_task_lock(id)
     asyncio.run(
         task_lock.put_queue(
-            ActionInstallMcpData(action=Action.install_mcp, data=data)
+            ActionInstallMcpData(action=Action.INSTALL_MCP, data=data)
         )
     )
     chat_logger.info("MCP installation queued", extra={"task_id": id})

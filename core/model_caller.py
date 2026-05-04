@@ -4,7 +4,7 @@ Async multi-model caller for Framework v3.
 
 Supported models:
   minimax  – Minimax M2 (supervisor / planner)
-  kimi     – Kimi K2.5 via Moonshot (thinker / reviewer)
+  kimi     – Kimi K2.6 via Moonshot (thinker / reviewer)
   glm      – GLM-4-Plus via ZhipuAI (coder / tests)
   nemotron – Nemotron-Ultra via NVIDIA (debugger)
   gemma    – Gemma3 via local Ollama (memory / misc)
@@ -64,8 +64,9 @@ MODEL_CONFIG: Dict[str, dict] = {
     "kimi-nim": {
         "endpoint": "https://integrate.api.nvidia.com/v1/chat/completions",
         "key_env": "NVIDIA_API_KEY",
-        "model_id": "moonshotai/kimi-k2.5",
+        "model_id": "moonshotai/kimi-k2.6",
         "schema": "openai",
+        "extra_body": {"chat_template_kwargs": {"thinking": True}},
     },
 }
 
@@ -92,7 +93,7 @@ async def call_model_async(
 
     api_key = os.getenv(cfg["key_env"], "") if cfg.get("key_env") else ""
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=300.0) as client:
         if cfg["schema"] == "openai":
             payload = {
                 "model": cfg["model_id"],
@@ -171,7 +172,7 @@ async def call_model_with_fallback(
         prompt = "\n".join(
             f"[{m['role'].upper()}] {m['content']}" for m in messages
         )
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(
                 f"{_OLLAMA_BASE_URL}/api/generate",
                 json={

@@ -1,0 +1,123 @@
+{
+  "god_nodes": [
+    {
+      "id": "base_agent_agentresult",
+      "label": "AgentResult",
+      "edges": 114
+    },
+    {
+      "id": "task_agents",
+      "label": "Agents",
+      "edges": 113
+    },
+    {
+      "id": "base_agent_agenttype",
+      "label": "AgentType",
+      "edges": 112
+    },
+    {
+      "id": "base_agent_baseagent",
+      "label": "BaseAgent",
+      "edges": 109
+    },
+    {
+      "id": "abstract_toolkit_abstracttoolkit",
+      "label": "AbstractToolkit",
+      "edges": 106
+    },
+    {
+      "id": "task_action",
+      "label": "Action",
+      "edges": 62
+    },
+    {
+      "id": "enums_status",
+      "label": "Status",
+      "edges": 61
+    },
+    {
+      "id": "workforce_workforce",
+      "label": "Workforce",
+      "edges": 59
+    },
+    {
+      "id": "chat_supplementchat",
+      "label": "SupplementChat",
+      "edges": 53
+    },
+    {
+      "id": "backend_engineer_agent_backendengineeragent",
+      "label": "BackendEngineerAgent",
+      "edges": 52
+    }
+  ],
+  "surprising_connections": [
+    {
+      "source": "core/graph_builder.py Wires the async nodes into a SimpleStateGraph for executio",
+      "target": "SimpleStateGraph",
+      "source_files": [
+        "core\\graph_builder.py",
+        "core\\state_graph.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `core/graph_builder.py Wires the async nodes into a SimpleStateGraph for executio` unexpectedly reaches hub `SimpleStateGraph`"
+    },
+    {
+      "source": "Build and compile the multi-agent execution graph.",
+      "target": "SimpleStateGraph",
+      "source_files": [
+        "core\\graph_builder.py",
+        "core\\state_graph.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `Build and compile the multi-agent execution graph.` unexpectedly reaches hub `SimpleStateGraph`"
+    },
+    {
+      "source": "core/state_graph.py Lightweight async StateGraph \u2013 a stand-in for LangGraph's St",
+      "target": "AgentState",
+      "source_files": [
+        "core\\state_graph.py",
+        "core\\agent_state.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `core/state_graph.py Lightweight async StateGraph \u2013 a stand-in for LangGraph's St` unexpectedly reaches hub `AgentState`"
+    },
+    {
+      "source": "Thin wrapper that makes any async function callable as a graph node.",
+      "target": "AgentState",
+      "source_files": [
+        "core\\state_graph.py",
+        "core\\agent_state.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `Thin wrapper that makes any async function callable as a graph node.` unexpectedly reaches hub `AgentState`"
+    },
+    {
+      "source": "Return the list of node names to run after `current`.",
+      "target": "AgentState",
+      "source_files": [
+        "core\\state_graph.py",
+        "core\\agent_state.py"
+      ],
+      "confidence": "INFERRED",
+      "relation": "uses",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `Return the list of node names to run after `current`.` unexpectedly reaches hub `AgentState`"
+    }
+  ],
+  "suggested_questions": [
+    {
+      "type": "verify_inferred",
+      "question": "Are the 5 inferred relationships involving `Agents` (e.g. with `ProgramException` and `AgentModelConfig`) actually correct?",
+      "why": "`Agents` has 5 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `Config`, `core/agent_state.py Pydantic v2 state models for the Multi-Agent Framework v3.`, `Convert state to dictionary for persistence.` to the rest of the system?",
+      "why": "163 weakly-connected nodes found - possible documentation gaps or missing edges."
+    }
+  ]
+}

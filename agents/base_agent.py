@@ -60,72 +60,51 @@ class AgentMessage:
     retry_count: int = 0
 
 
-@dataclass
-class AgentResult:
-    """Standardized result format from agent execution"""
-    success: bool
-    confidence: float  # 0-100
-    outputs: Dict[str, Any]
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    duration: float = 0.0  # seconds
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary"""
-        return {
-            'success': self.success,
-            'confidence': self.confidence,
-            'outputs': self.outputs,
-            'metadata': self.metadata,
-            'errors': self.errors,
-            'warnings': self.warnings,
-            'duration': self.duration
-        }
+from core.contracts.agent_protocols import AgentProtocol, ResultProtocol
+from core.traits.stateful import StatefulTrait
+from core.traits.runnable import RunnableTrait
+from core.traits.communicable import CommunicableTrait
+from core.results.execution_result import ExecutionResult
 
+class AgentResult(ExecutionResult[Dict[str, Any]], ResultProtocol):
+    """Standardized result format from agent execution (backward compatible)"""
+    @property
+    def success(self) -> bool: return self.success
+    @property
+    def confidence(self) -> float: return self.confidence
+    @property
+    def outputs(self) -> Dict[str, Any]: return self.payload
+    @property
+    def metadata(self) -> Dict[str, Any]: return self.metadata
+    @property
+    def errors(self) -> List[str]: return self.errors
+    @property
+    def warnings(self) -> List[str]: return self.warnings
+    @property
+    def duration(self) -> float: return self.duration
 
-class BaseAgent(ABC):
+class BaseAgent(StatefulTrait, RunnableTrait, CommunicableTrait, AgentProtocol, ABC):
     """
-    Abstract async base class for all agents in the multi-agent system.
+    Abstract base class for all agents, composed of traits.
     """
     
     def __init__(
         self,
         agent_type: AgentType,
         config: Optional[Dict[str, Any]] = None,
-        llm_adapter: Any = None # Keep for compat, but we prefer call_model_async
+        llm_adapter: Any = None
     ):
-        """
-        Initialize base agent
-        """
+        StatefulTrait.__init__(self)
         self.agent_type = agent_type
         self.config = config or {}
-        self.llm_adapter = llm_adapter # Legacy, can be None
+        self.llm_adapter = llm_adapter
         self.logger = logging.getLogger(f"Agent.{agent_type.value}")
-        
-        # State management
-        self.state = {
-            'tasks_completed': 0,
-            'tasks_failed': 0,
-            'total_confidence': 0.0,
-            'last_execution': None
-        }
         
         self.confidence_threshold = self.config.get('confidence_threshold', 90.0)
         self.max_retries = self.config.get('max_retries', 3)
         
-        self.logger.info(f"Initialized {agent_type.value} agent (Async v3)")
-    
-    @abstractmethod
-    async def execute(self, inputs: Dict[str, Any]) -> AgentResult:
-        """Main async execution method"""
-        pass
-    
-    @abstractmethod
-    async def validate_inputs(self, inputs: Dict[str, Any]) -> Tuple[bool, List[str]]:
-        """Async input validation"""
-        pass
-    
+        self.logger.info(f"Initialized {agent_type.value} agent (Trait-based v3)")
+
     async def execute_with_retry(self, inputs: Dict[str, Any]) -> AgentResult:
         """Execute task with async retry logic"""
         start_time = time.time()
@@ -136,22 +115,31 @@ class BaseAgent(ABC):
             try:
                 self.logger.info(f"Executing task (attempt {attempt + 1}/{self.max_retries})")
                 
-                # Validate inputs
                 is_valid, errors = await self.validate_inputs(inputs)
                 if not is_valid:
                     return AgentResult(
                         success=False,
                         confidence=0.0,
-                        outputs={},
+                        payload={},
                         errors=errors,
                         duration=time.time() - start_time
                     )
                 
-                # Execute main task
                 result = await self.execute(inputs)
+                # Ensure result is AgentResult for compat
+                if not isinstance(result, AgentResult):
+                    result = AgentResult(
+                        success=result.success,
+                        confidence=result.confidence,
+                        payload=result.outputs if hasattr(result, 'outputs') else result.payload,
+                        metadata=result.metadata,
+                        errors=result.errors,
+                        warnings=result.warnings,
+                        duration=time.time() - start_time
+                    )
+                
                 result.duration = time.time() - start_time
                 
-                # Check confidence threshold
                 if result.success and result.confidence >= self.confidence_threshold:
                     self._update_state(success=True, confidence=result.confidence)
                     return result
@@ -174,32 +162,20 @@ class BaseAgent(ABC):
         return AgentResult(
             success=False,
             confidence=0.0,
-            outputs={},
+            payload={},
             errors=last_error or ["Max retries exceeded"],
             duration=time.time() - start_time
         )
-    
-    def _update_state(self, success: bool, confidence: float):
-        self.state['tasks_completed'] += 1 if success else 0
-        if success: self.state['total_confidence'] += confidence
-        else: self.state['tasks_failed'] += 1
-        self.state['last_execution'] = datetime.now().isoformat()
-    
+
     async def _call_llm(
         self,
         prompt: str,
         system_context: Optional[str] = None,
-        role: str = "general", # Maps to v3 model mapping
-        temperature: float = 0.7,
+        role: str = "general",
+        temperature: float = 0.1,
         max_tokens: int = 4096
     ) -> str:
-        """Integrated with v3 call_model_async"""
-        messages = []
-        if system_context:
-            messages.append({"role": "system", "content": system_context})
-        messages.append({"role": "user", "content": prompt})
-        
-        # In v3, we map agent types to model roles:
+        # Map agent type to model name as before
         role_map = {
             AgentType.PRODUCT_INTERPRETER: "minimax-nim",
             AgentType.FRONTEND_ENGINEER: "glm-nim",
@@ -207,18 +183,9 @@ class BaseAgent(ABC):
             AgentType.DEBUG: "nemotron",
             AgentType.SECURITY: "kimi-nim"
         }
-        
         model_name = role_map.get(self.agent_type, "gemma")
-        
-        resp = await call_model_async(
-            model_name,
-            messages,
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
-        
-        return resp["choices"][0]["message"]["content"]
-    
+        return await CommunicableTrait._call_llm(self, prompt, model_name, system_context, temperature, max_tokens)
+
     def _parse_json_from_llm(self, llm_response: str) -> Optional[Dict[str, Any]]:
         try:
             import re

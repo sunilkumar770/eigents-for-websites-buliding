@@ -17,7 +17,7 @@ from orchestration.rate_limiter import get_rate_limiter
 
 class KimiAdapter:
     """
-    Adapter for Kimi K2.5 via NVIDIA API.
+    Adapter for Kimi K2.6 via NVIDIA API.
     Uses 'requests' directly to bypass SSL verification issues in some environments.
     Integrated with RateLimiter for controlled API access.
     """
@@ -25,22 +25,23 @@ class KimiAdapter:
                  rate_limiter: Optional[Any] = None, max_concurrent_calls: int = 2):
         self.api_key = api_key
         self.base_url = base_url.rstrip('/') + "/chat/completions"
-        self.model = "moonshotai/kimi-k2.5"
+        self.model = "moonshotai/kimi-k2.6"
         
         # Rate limiter integration
         self.rate_limiter = rate_limiter or get_rate_limiter(max_concurrent_calls)
         self.agent_type = "kimi_adapter"  # Default, can be overridden per call
 
 
-    def chat(self, messages: List[Dict[str, str]], stream: bool = False, agent_type: str = None, **kwargs) -> Any:
+    def chat(self, messages: List[Dict[str, str]], stream: bool = False, agent_type: str = None, thinking: bool = False, **kwargs) -> Any:
         """
-        Send a chat message to Kimi K2.5 using requests.
+        Send a chat message to Kimi K2.6 using requests.
         Rate-limited to prevent API overload.
         
         Args:
             messages: Chat messages
             stream: Whether to stream response
             agent_type: Optional agent type for tracking (defaults to self.agent_type)
+            thinking: Whether to enable 'thinking' mode (K2.6 feature)
             **kwargs: Additional parameters for the API
         
         Returns:
@@ -61,20 +62,20 @@ class KimiAdapter:
                     with concurrent.futures.ThreadPoolExecutor() as pool:
                         future = pool.submit(
                             asyncio.run,
-                            self._chat_async(messages, stream, agent_type or self.agent_type, **kwargs)
+                            self._chat_async(messages, stream, agent_type or self.agent_type, thinking=thinking, **kwargs)
                         )
                         return future.result()
             
             return loop.run_until_complete(
-                self._chat_async(messages, stream, agent_type or self.agent_type, **kwargs)
+                self._chat_async(messages, stream, agent_type or self.agent_type, thinking=thinking, **kwargs)
             )
         except RuntimeError:
             # No event loop exists, create one
             return asyncio.run(
-                self._chat_async(messages, stream, agent_type or self.agent_type, **kwargs)
+                self._chat_async(messages, stream, agent_type or self.agent_type, thinking=thinking, **kwargs)
             )
     
-    async def _chat_async(self, messages: List[Dict[str, str]], stream: bool, agent_type: str, **kwargs) -> Any:
+    async def _chat_async(self, messages: List[Dict[str, str]], stream: bool, agent_type: str, thinking: bool = False, **kwargs) -> Any:
         """
         Async version of chat with rate limiting
         """
@@ -94,15 +95,19 @@ class KimiAdapter:
                 "Content-Type": "application/json"
             }
             
-            # Using verified safer defaults
+            # Using verified safer defaults for K2.6
             payload = {
                 "model": self.model,
                 "messages": messages,
-                "max_tokens": 4096,
-                "temperature": 0.7,
+                "max_tokens": 16384,
+                "temperature": 1.0,
                 "top_p": 1.0,
                 "stream": stream
             }
+            
+            if thinking:
+                payload["chat_template_kwargs"] = {"thinking": True}
+                
             payload.update(kwargs)
             
             # Make API call
@@ -139,7 +144,7 @@ class KimiAdapter:
                 print(f"\n⚠️  Rate limited by API - retrying with backoff")
                 # Exponential backoff retry
                 await asyncio.sleep(2)  # Wait 2 seconds before retry
-                return await self._chat_async(messages, stream, agent_type, **kwargs)
+                return await self._chat_async(messages, stream, agent_type, thinking=thinking, **kwargs)
             
             print(f"\n⚠️  API Error: {error_msg[:100]} - using mock response")
             return self._mock_response(messages, error=True)

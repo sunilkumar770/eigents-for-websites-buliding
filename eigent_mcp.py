@@ -8,6 +8,10 @@ and other MCP-compatible clients.
 from fastmcp import FastMCP
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add project root to path
 root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -30,7 +34,6 @@ async def hybrid_reasoning(prompt: str, agent_role: str = "glm-nim") -> str:
     Direct access to specialized NVIDIA NIM models (glm-nim, minimax-nim, kimi-nim, nemotron).
     Useful for architectural queries or deep code reasoning.
     """
-    print(f"🌀 Eigent Reasoning ({agent_role}): {prompt[:50]}...")
     try:
         resp = await call_model_async(agent_role, [{"role": "user", "content": prompt}])
         return resp["choices"][0]["message"]["content"]

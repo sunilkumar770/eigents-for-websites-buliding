@@ -16,12 +16,12 @@ except ImportError:
     pass
 
 from core.agent_state import AgentState
-from core.graph_builder import build_graph
+from core.execution.graph_compiler import compile_v3_graph
 
 
 async def run_task(task: str) -> AgentState:
     """Execute a task through the async multi-agent graph."""
-    graph = build_graph()
+    graph = compile_v3_graph()
     initial_state = AgentState(task=task)
     
     # Run the graph

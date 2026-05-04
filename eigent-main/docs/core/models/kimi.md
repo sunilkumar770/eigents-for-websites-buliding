@@ -35,7 +35,7 @@ Click on the Moonshot card and fill in the following fields:
 - **API Host:** Enter the appropriate API endpoint host (for example,
   `https://api.moonshot.ai/v1`).
 - **Model Type:** Enter the specific model version you wish to use.
-  - _Example:_ `kimi-k2.5`
+  - _Example:_ `kimi-k2.6`
 - **Save:** Click the **Save** button to apply your changes.
 
 ![Kimi 3 Pn](/docs/images/kimi_2.png)

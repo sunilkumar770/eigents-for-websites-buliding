@@ -22,8 +22,8 @@ from pydantic import BaseModel
 
 from app.component.environment import sanitize_env_path, set_user_env_path
 from app.model.chat import NewAgent, UpdateData
+from core.contracts.actions import Action
 from app.service.task import (
-    Action,
     ActionNewAgent,
     ActionStartData,
     ActionStopData,
@@ -42,7 +42,7 @@ router = APIRouter()
 def start(id: str):
     task_lock = get_task_lock(id)
     logger.info("Starting task", extra={"task_id": id})
-    asyncio.run(task_lock.put_queue(ActionStartData(action=Action.start)))
+    asyncio.run(task_lock.put_queue(ActionStartData(action=Action.START)))
     logger.info("Task started successfully", extra={"task_id": id})
     return Response(status_code=201)
 
@@ -60,7 +60,7 @@ def put(id: str, data: UpdateData):
     task_lock = get_task_lock(id)
     asyncio.run(
         task_lock.put_queue(
-            ActionUpdateTaskData(action=Action.update_task, data=data)
+            ActionUpdateTaskData(action=Action.UPDATE_TASK, data=data)
         )
     )
     logger.info("Task updated successfully", extra={"task_id": id})
@@ -68,7 +68,7 @@ def put(id: str, data: UpdateData):
 
 
 class TakeControl(BaseModel):
-    action: Literal[Action.pause, Action.resume]
+    action: Literal[Action.PAUSE, Action.RESUME]
 
 
 @router.put("/task/{id}/take-control", name="take control pause or resume")

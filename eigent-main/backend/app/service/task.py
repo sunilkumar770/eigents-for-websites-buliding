@@ -25,6 +25,8 @@ from camel.tasks import Task
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
+from core.contracts.actions import Action
+
 from app.exception.exception import ProgramException
 from app.model.chat import (
     AgentModelConfig,
@@ -37,38 +39,7 @@ from app.model.enums import Status
 logger = logging.getLogger("task_service")
 
 
-class Action(str, Enum):
-    improve = "improve"  # user -> backend
-    update_task = "update_task"  # user -> backend
-    task_state = "task_state"  # backend -> user
-    new_task_state = "new_task_state"  # backend -> user
-    # backend -> user (streaming decomposition)
-    decompose_progress = "decompose_progress"
-    decompose_text = "decompose_text"  # backend -> user (raw streaming text)
-    start = "start"  # user -> backend
-    create_agent = "create_agent"  # backend -> user
-    activate_agent = "activate_agent"  # backend -> user
-    deactivate_agent = "deactivate_agent"  # backend -> user
-    assign_task = "assign_task"  # backend -> user
-    activate_toolkit = "activate_toolkit"  # backend -> user
-    deactivate_toolkit = "deactivate_toolkit"  # backend -> user
-    write_file = "write_file"  # backend -> user
-    ask = "ask"  # backend -> user
-    notice = "notice"  # backend -> user
-    search_mcp = "search_mcp"  # backend -> user
-    install_mcp = "install_mcp"  # backend -> user
-    terminal = "terminal"  # backend -> user
-    end = "end"  # backend -> user
-    stop = "stop"  # user -> backend
-    supplement = "supplement"  # user -> backend
-    pause = "pause"  # user -> backend  user take control
-    resume = "resume"  # user -> backend  user take control
-    new_agent = "new_agent"  # user -> backend
-    budget_not_enough = "budget_not_enough"  # backend -> user
-    add_task = "add_task"  # user -> backend
-    remove_task = "remove_task"  # user -> backend
-    skip_task = "skip_task"  # user -> backend
-    timeout = "timeout"  # backend -> user (task timeout error)
+# Action enum moved to core.contracts.actions.Action
 
 
 class ImprovePayload(BaseModel):
@@ -79,22 +50,22 @@ class ImprovePayload(BaseModel):
 
 
 class ActionImproveData(BaseModel):
-    action: Literal[Action.improve] = Action.improve
+    action: Literal[Action.IMPROVE] = Action.IMPROVE
     data: ImprovePayload
     new_task_id: str | None = None
 
 
 class ActionStartData(BaseModel):
-    action: Literal[Action.start] = Action.start
+    action: Literal[Action.START] = Action.START
 
 
 class ActionUpdateTaskData(BaseModel):
-    action: Literal[Action.update_task] = Action.update_task
+    action: Literal[Action.UPDATE_TASK] = Action.UPDATE_TASK
     data: UpdateData
 
 
 class ActionTaskStateData(BaseModel):
-    action: Literal[Action.task_state] = Action.task_state
+    action: Literal[Action.TASK_STATE] = Action.TASK_STATE
     data: dict[
         Literal["task_id", "content", "state", "result", "failure_count"],
         str | int,
@@ -102,17 +73,17 @@ class ActionTaskStateData(BaseModel):
 
 
 class ActionDecomposeProgressData(BaseModel):
-    action: Literal[Action.decompose_progress] = Action.decompose_progress
+    action: Literal[Action.DECOMPOSE_PROGRESS] = Action.DECOMPOSE_PROGRESS
     data: dict
 
 
 class ActionDecomposeTextData(BaseModel):
-    action: Literal[Action.decompose_text] = Action.decompose_text
+    action: Literal[Action.DECOMPOSE_TEXT] = Action.DECOMPOSE_TEXT
     data: dict
 
 
 class ActionNewTaskStateData(BaseModel):
-    action: Literal[Action.new_task_state] = Action.new_task_state
+    action: Literal[Action.NEW_TASK_STATE] = Action.NEW_TASK_STATE
     data: dict[
         Literal["task_id", "content", "state", "result", "failure_count"],
         str | int,
@@ -120,7 +91,7 @@ class ActionNewTaskStateData(BaseModel):
 
 
 class ActionAskData(BaseModel):
-    action: Literal[Action.ask] = Action.ask
+    action: Literal[Action.ASK] = Action.ASK
     data: dict[Literal["question", "agent"], str]
 
 
@@ -131,12 +102,12 @@ class AgentDataDict(TypedDict):
 
 
 class ActionCreateAgentData(BaseModel):
-    action: Literal[Action.create_agent] = Action.create_agent
+    action: Literal[Action.CREATE_AGENT] = Action.CREATE_AGENT
     data: AgentDataDict
 
 
 class ActionActivateAgentData(BaseModel):
-    action: Literal[Action.activate_agent] = Action.activate_agent
+    action: Literal[Action.ACTIVATE_AGENT] = Action.ACTIVATE_AGENT
     data: dict[
         Literal["agent_name", "process_task_id", "agent_id", "message"], str
     ]
@@ -151,12 +122,12 @@ class DataDict(TypedDict):
 
 
 class ActionDeactivateAgentData(BaseModel):
-    action: Literal[Action.deactivate_agent] = Action.deactivate_agent
+    action: Literal[Action.DEACTIVATE_AGENT] = Action.DEACTIVATE_AGENT
     data: DataDict
 
 
 class ActionAssignTaskData(BaseModel):
-    action: Literal[Action.assign_task] = Action.assign_task
+    action: Literal[Action.ASSIGN_TASK] = Action.ASSIGN_TASK
     data: dict[
         Literal["assignee_id", "task_id", "content", "state", "failure_count"],
         str | int,
@@ -164,7 +135,7 @@ class ActionAssignTaskData(BaseModel):
 
 
 class ActionActivateToolkitData(BaseModel):
-    action: Literal[Action.activate_toolkit] = Action.activate_toolkit
+    action: Literal[Action.ACTIVATE_TOOLKIT] = Action.ACTIVATE_TOOLKIT
     data: dict[
         Literal[
             "agent_name",
@@ -178,7 +149,7 @@ class ActionActivateToolkitData(BaseModel):
 
 
 class ActionDeactivateToolkitData(BaseModel):
-    action: Literal[Action.deactivate_toolkit] = Action.deactivate_toolkit
+    action: Literal[Action.DEACTIVATE_TOOLKIT] = Action.DEACTIVATE_TOOLKIT
     data: dict[
         Literal[
             "agent_name",
@@ -192,43 +163,43 @@ class ActionDeactivateToolkitData(BaseModel):
 
 
 class ActionWriteFileData(BaseModel):
-    action: Literal[Action.write_file] = Action.write_file
+    action: Literal[Action.WRITE_FILE] = Action.WRITE_FILE
     process_task_id: str
     data: str
 
 
 class ActionNoticeData(BaseModel):
-    action: Literal[Action.notice] = Action.notice
+    action: Literal[Action.NOTICE] = Action.NOTICE
     process_task_id: str
     data: str
 
 
 class ActionSearchMcpData(BaseModel):
-    action: Literal[Action.search_mcp] = Action.search_mcp
+    action: Literal[Action.SEARCH_MCP] = Action.SEARCH_MCP
     data: Any
 
 
 class ActionInstallMcpData(BaseModel):
-    action: Literal[Action.install_mcp] = Action.install_mcp
+    action: Literal[Action.INSTALL_MCP] = Action.INSTALL_MCP
     data: McpServers
 
 
 class ActionTerminalData(BaseModel):
-    action: Literal[Action.terminal] = Action.terminal
+    action: Literal[Action.TERMINAL] = Action.TERMINAL
     process_task_id: str
     data: str
 
 
 class ActionStopData(BaseModel):
-    action: Literal[Action.stop] = Action.stop
+    action: Literal[Action.STOP] = Action.STOP
 
 
 class ActionEndData(BaseModel):
-    action: Literal[Action.end] = Action.end
+    action: Literal[Action.END] = Action.END
 
 
 class ActionTimeoutData(BaseModel):
-    action: Literal[Action.timeout] = Action.timeout
+    action: Literal[Action.TIMEOUT] = Action.TIMEOUT
     data: dict[
         Literal[
             "message", "in_flight_tasks", "pending_tasks", "timeout_seconds"
@@ -238,16 +209,16 @@ class ActionTimeoutData(BaseModel):
 
 
 class ActionSupplementData(BaseModel):
-    action: Literal[Action.supplement] = Action.supplement
+    action: Literal[Action.SUPPLEMENT] = Action.SUPPLEMENT
     data: SupplementChat
 
 
 class ActionTakeControl(BaseModel):
-    action: Literal[Action.pause, Action.resume]
+    action: Literal[Action.PAUSE, Action.RESUME]
 
 
 class ActionNewAgent(BaseModel):
-    action: Literal[Action.new_agent] = Action.new_agent
+    action: Literal[Action.NEW_AGENT] = Action.NEW_AGENT
     name: str
     description: str
     tools: list[str]
@@ -256,11 +227,11 @@ class ActionNewAgent(BaseModel):
 
 
 class ActionBudgetNotEnough(BaseModel):
-    action: Literal[Action.budget_not_enough] = Action.budget_not_enough
+    action: Literal[Action.BUDGET_NOT_ENOUGH] = Action.BUDGET_NOT_ENOUGH
 
 
 class ActionAddTaskData(BaseModel):
-    action: Literal[Action.add_task] = Action.add_task
+    action: Literal[Action.ADD_TASK] = Action.ADD_TASK
     content: str
     project_id: str | None = None
     task_id: str | None = None
@@ -269,13 +240,13 @@ class ActionAddTaskData(BaseModel):
 
 
 class ActionRemoveTaskData(BaseModel):
-    action: Literal[Action.remove_task] = Action.remove_task
+    action: Literal[Action.REMOVE_TASK] = Action.REMOVE_TASK
     task_id: str
     project_id: str
 
 
 class ActionSkipTaskData(BaseModel):
-    action: Literal[Action.skip_task] = Action.skip_task
+    action: Literal[Action.SKIP_TASK] = Action.SKIP_TASK
     project_id: str
 
 

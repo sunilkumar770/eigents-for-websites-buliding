@@ -44,3 +44,18 @@ Thumbs.db
 # Temp / scratch test files
 test_kimi_api.py
 test_connectivity.py
+scratch/
+
+# Build reports and temporary status docs
+BUILD_*.md
+*_FIX.md
+*_REPORT.md
+SUCCESS.md
+DEPLOYMENT_SUCCESS.md
+PROGRESS.md
+*_SUMMARY.md
+BUILD_IN_PROGRESS.md
+
+# Large files
+*.zip
+*.tar.gz
